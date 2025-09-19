@@ -1,0 +1,58 @@
+body {
+  font-family: Arial;
+  margin: 20px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+#data {
+  height: 300px;
+  overflow-y: scroll;
+  border: 1px solid #ccc;
+  padding: 10px;
+  font-family: monospace;
+  background-color: #f5f5f5;
+  margin-bottom: 15px;
+}
+
+.input-group {
+  display: flex;
+  margin-top: 10px;
+}
+
+#command {
+  flex-grow: 1;
+  margin-right: 10px;
+  padding: 5px;
+}
+
+button {
+  padding: 5px 10px;
+  margin: 2px;
+  cursor: pointer;
+}
+
+.cmd-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.cmd-group {
+  margin-bottom: 15px;
+}
+
+.cmd-group h3 {
+  margin: 10px 0 5px 0;
+}
