@@ -2,11 +2,11 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
-#include "LittleFS.h"  // Добавляем поддержку файловой системы
+#include "LittleFS.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <avr/pgmspace.h>
+#include <pgmspace.h>
 
 const char* ssid = "K-Line_Adapter";
 const char* password = "12345678";
@@ -72,7 +72,7 @@ static const unsigned char PROGMEM anime2[] = { 0x20, 0x0, 0x0, 0x3, 0xe0, 0xf, 
 
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
-String serialData = "";
+String serialData;
 unsigned long lastUpdate = 0;
 
 // Настройки OLED дисплея
@@ -103,24 +103,23 @@ void updateOledDisplay() {
   display.display();
 }
 
-void addToOledDisplay(String line) {
-  if (line.length() > 21) {
-    line = line.substring(0, 21);
+void addToOledDisplay(const String& line) {
+  String displayLine = line;
+  if (displayLine.length() > 21) {
+    displayLine = displayLine.substring(0, 21);
   }
 
   if (currentLine >= 7) {
     for (int i = 0; i < 7; i++) {
       oledLines[i] = oledLines[i + 1];
     }
-    oledLines[7] = line;
+    oledLines[7] = displayLine;
   } else {
-    oledLines[currentLine] = line;
+    oledLines[currentLine] = displayLine;
     currentLine++;
   }
   updateOledDisplay();
 }
-
-
 
 void clearOledDisplay() {
   for (int i = 0; i < 8; i++) {
@@ -131,38 +130,42 @@ void clearOledDisplay() {
 }
 
 // Функции для работы с KWP2000
-String createKwpFrame(String command) {
-  command.replace(" ", "");
-  int len = command.length() / 2;
-  byte data[len];
-  for (int i = 0; i < len; i++) {
-    String byteStr = command.substring(i * 2, i * 2 + 2);
-    data[i] = (byte)strtol(byteStr.c_str(), NULL, 16);
+String createKwpFrame(const String& command) {
+  String cleanCommand = command;
+  cleanCommand.replace(" ", "");
+  int len = cleanCommand.length() / 2;
+  
+  if (len == 0 || cleanCommand.length() % 2 != 0) {
+    return "";
   }
-
+  
   String frame = "";
   byte formatByte = 0xC0 | (len + 2);
   frame += (char)formatByte;
   frame += (char)0x10;
   frame += (char)0xF1;
-
+  
   for (int i = 0; i < len; i++) {
-    frame += (char)data[i];
+    String byteStr = cleanCommand.substring(i * 2, i * 2 + 2);
+    byte dataByte = (byte) strtol(byteStr.c_str(), NULL, 16);
+    frame += (char)dataByte;
   }
-
+  
   byte checksum = 0;
   for (size_t i = 0; i < frame.length(); i++) {
     checksum += frame[i];
   }
   frame += (char)checksum;
-
+  
   return frame;
 }
 
-String toHexString(String data) {
-  String result = "";
+String toHexString(const String& data) {
+  String result;
+  result.reserve(data.length() * 3);
+  
   for (size_t i = 0; i < data.length(); i++) {
-    if (result.length() > 0) result += " ";
+    if (i > 0) result += " ";
     char buf[3];
     sprintf(buf, "%02X", (unsigned char)data[i]);
     result += buf;
@@ -170,38 +173,39 @@ String toHexString(String data) {
   return result;
 }
 
-String parseKwpFrame(String frame) {
+String parseKwpFrame(const String& frame) {
   if (frame.length() < 5) return "Invalid frame";
-
-  String result = "";
+  
+  String result;
+  result.reserve(100);
+  
   byte checksum = 0;
-
   for (size_t i = 0; i < frame.length() - 1; i++) {
     checksum += frame[i];
   }
-
+  
   if ((byte)frame[frame.length() - 1] != checksum) {
     return "Checksum error";
   }
-
+  
   byte targetAddr = frame[1];
   byte sourceAddr = frame[2];
-
+  
   result += "Target: 0x";
   char buf[3];
   sprintf(buf, "%02X", targetAddr);
   result += buf;
-
+  
   result += " Source: 0x";
   sprintf(buf, "%02X", sourceAddr);
   result += buf;
-
+  
   result += " Data: ";
   for (size_t i = 3; i < frame.length() - 1; i++) {
     sprintf(buf, "%02X ", (unsigned char)frame[i]);
     result += buf;
   }
-
+  
   return result;
 }
 
@@ -220,12 +224,28 @@ String getTime() {
 void handleRoot() {
   File file = LittleFS.open("/index.html", "r");
   if (!file) {
-    server.send(500, "text/plain", "Failed to open index.html");
+    server.send(500, "text/plain", "Ошибка открытия файла");
     return;
   }
-
+  
   server.streamFile(file, "text/html");
   file.close();
+}
+
+void handleCSS() {
+  File file = LittleFS.open("/style.css", "r");
+  if (!file) {
+    server.send(404, "text/plain", "File not found");
+    return;
+  }
+  
+  server.streamFile(file, "text/css");
+  file.close();
+}
+
+void handleNotFound() {
+  String message = "File Not Found\n\n";
+  server.send(404, "text/plain", message);
 }
 
 void handleData() {
@@ -236,15 +256,28 @@ void handleSend() {
   if (server.hasArg("cmd")) {
     String command = server.arg("cmd");
     String kwpFrame = createKwpFrame(command);
-
+    
+    if (kwpFrame.length() == 0) {
+      server.send(400, "text/plain", "Invalid command");
+      return;
+    }
+    
     for (size_t i = 0; i < kwpFrame.length(); i++) {
       Serial.print(kwpFrame[i]);
     }
-
+    
     String timeStr = getTime();
     String logEntry = "[" + timeStr + "] TX: " + command + " (Frame: " + toHexString(kwpFrame) + ")";
     serialData += logEntry + "<br>";
-
+    
+    // Ограничиваем размер serialData чтобы избежать переполнения памяти
+    if (serialData.length() > 4000) {
+      int cutIndex = serialData.indexOf('<', 1000);
+      if (cutIndex != -1) {
+        serialData = serialData.substring(cutIndex);
+      }
+    }
+    
     addToOledDisplay("TX: " + command);
   }
   server.send(200, "text/plain", "OK");
@@ -260,34 +293,28 @@ void handleClear() {
 void setup() {
   Serial.begin(10400);
   delay(1000);
-
-  // Инициализация файловой системы
-  if (!LittleFS.begin()) {
-    Serial.println("Failed to mount file system");
-    return;
-  }
+  
+  // Резервируем память для serialData
+  serialData.reserve(5000);
 
   // Инициализация OLED дисплея
   Wire.begin(4, 5);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("OLED не инициализирован!");
-    return;
+    // Продолжаем работу даже без дисплея
+  } else {
+    // Показываем заставку при включении
+    display.clearDisplay();
+    display.drawBitmap(0, 0, anime2, 128, 64, SSD1306_WHITE);
+    display.display();
+    delay(2000);  // Показываем заставку 2 секунды
   }
 
-  // Показываем заставку при включении
-  display.clearDisplay();
-  display.drawBitmap(0, 0, anime2, 128, 64, SSD1306_WHITE);
-  display.display();
-  delay(3000);  // Показываем заставку 2 секунды
-
-  // Очищаем дисплей и выводим основную информацию
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("K-Line Adapter");
-  display.println("Launch...");
-  display.display();
+  // Инициализация файловой системы
+  if (!LittleFS.begin()) {
+    Serial.println("Failed to mount file system");
+    // Продолжаем работу даже без файловой системы
+  }
 
   // Настройка WiFi
   WiFi.softAP(ssid, password);
@@ -298,26 +325,29 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/data", handleData);
   server.on("/send", handleSend);
-  server.on("/clear", handleClear);
+  server.on("/clear", handleClear); 
+  server.on("/style.css", handleCSS);
+  server.onNotFound(handleNotFound);
+  server.begin();
 
   // Обслуживание статических файлов
   server.serveStatic("/style.css", LittleFS, "/style.css");
-  server.serveStatic("/script.js", LittleFS, "/script.js");
-
-  server.begin();
+  server.serveStatic("/script.js", LittleFS, "/script.js");  
 
   // Добавляем начальное сообщение
   serialData = "K-Line launch<br>";
   serialData += "IP адрес: " + myIP.toString() + "<br>";
-  serialData += "Speed: 10400 boud<br>";
+  serialData += "Speed: 10400 baud<br>";
   serialData += "Protocol: KWP2000<br>";
 
   // Инициализация OLED дисплея
-  clearOledDisplay();
-  addToOledDisplay("K-Line Adapter");
-  addToOledDisplay("IP: " + myIP.toString());
-  addToOledDisplay("Speed: 10400");
-  addToOledDisplay("KWP2000 ready");
+  if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    clearOledDisplay();
+    addToOledDisplay("    K-Line Adapter");
+    addToOledDisplay("IP: " + myIP.toString());
+    addToOledDisplay("Speed: 10400");
+    addToOledDisplay("KWP2000 ready");
+  }
 }
 
 void loop() {
@@ -327,25 +357,20 @@ void loop() {
   if (Serial.available() > 0) {
     String data = Serial.readString();
     String timeStr = getTime();
-
-    String parsedFrame = parseKwpFrame(data);
-
-    String logEntry = "[" + timeStr + "] RX: " + parsedFrame;
+    String logEntry = "[" + timeStr + "] RX: " + toHexString(data);
     serialData += logEntry + "<br>";
-
-    if (parsedFrame.length() > 21) {
-      addToOledDisplay("RX: " + parsedFrame.substring(0, 21));
-      addToOledDisplay(parsedFrame.substring(21));
-    } else {
-      addToOledDisplay("RX: " + parsedFrame);
-    }
-
-    if (serialData.length() > 5000) {
-      int cutPos = serialData.indexOf('<', 1000);
-      if (cutPos != -1) {
-        serialData = serialData.substring(cutPos);
+    
+    // Ограничиваем размер serialData чтобы избежать переполнения памяти
+    if (serialData.length() > 4000) {
+      int cutIndex = serialData.indexOf('<', 1000);
+      if (cutIndex != -1) {
+        serialData = serialData.substring(cutIndex);
       }
     }
+    
+    // Добавляем на дисплей (обрезаем до 21 символа)
+    String displayLine = "RX: " + toHexString(data);
+    addToOledDisplay(displayLine);
   }
 
   delay(10);
