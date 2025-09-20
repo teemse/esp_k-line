@@ -348,34 +348,3 @@ void loop() {
 
   delay(10);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// anime2.h
-#define ANIME2_WIDTH 128
-#define ANIME2_HEIGHT 64

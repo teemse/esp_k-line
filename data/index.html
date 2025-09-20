@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <title>K-Line Адаптер</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>K-Line Адаптер</h1>
+            <div class="subtitle">Интерфейс для диагностики автомобильных систем</div>
+        </header>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span class="status-indicator status-connected"></span>Январь-5 Euro2</h2>
+                <div class="connection-status">
+                    Подключение: <span class="badge badge-success">Активно</span>
+                </div>
+            </div>
+
+            <div class="cmd-group">
+                <h3>📋 Быстрые команды</h3>
+                <div class="cmd-buttons">
+                    <button class="cmd-btn" onclick="sendQuickCommand('81')">📱 StartCommunication</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('10 81 0A')">🚀 StartDiagnosticSession</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('3E 00')">📊 TesterPresent</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('82')">⏹️ StopCommunication</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 8C')">📝 ReadParamSet1</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 0D')">📝 ReadParamSet2</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('11 01')">🔄 ECUReset</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('14 00 00')">🧹 ClearDTCs</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('18 00 00')">📋 ReadDTCs</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 01')">🔍 AfterSalesData</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 02')">🏭 EndOfLineData</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 03')">🔧 FactoryTestData</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 A0')">🔒 ImmobilizerData</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('1A 80')">📛 ReadECUIdentification</button>
+                    <button class="cmd-btn" onclick="sendQuickCommand('21 0F')">📝 ReadParamSet3</button>
+                </div>
+            </div>
+
+            <div class="settings">
+                <div>
+                    <label for="protocol">Протокол:</label>
+                    <select id="protocol">
+                        <option value="kline">K-Line</option>
+                        <option value="pwm">PWM</option>
+                        <option value="vpw">VPW</option>
+                        <option value="can">CAN</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="baudrate">Скорость:</label>
+                    <select id="baudrate">
+                        <option value="9600">9600</option>
+                        <option value="10400">10400</option>
+                        <option value="14400">14400</option>
+                        <option value="19200">19200</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>📊 Данные K-Line</h2>
+            </div>
+
+            <div id="data">
+                <div class="log-entry">
+                    <span class="log-time">[12:45:30]</span>
+                    <span class="log-info">Система инициализирована. Ожидание команд...</span>
+                </div>
+                <div class="log-entry">
+                    <span class="log-time">[12:45:35]</span>
+                    <span class="log-sent">Отправлено: 81</span>
+                </div>
+                <div class="log-entry">
+                    <span class="log-time">[12:45:35]</span>
+                    <span class="log-received">Получено: C1</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="command" placeholder="Введите HEX команду (например: 01 0D)">
+                <button class="primary-btn" onclick="sendCommand()">📤 Отправить</button>
+                <button class="danger-btn" onclick="clearData()">🧹 Очистить лог</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
