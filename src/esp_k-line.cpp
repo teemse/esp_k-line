@@ -88,6 +88,21 @@ String oledLines[8];
 int currentLine = 0;
 
 // Функции для работы с OLED дисплеем
+void updateOledDisplay() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+
+  for (int i = 0; i < 8; i++) {
+    if (oledLines[i].length() > 0) {
+      display.println(oledLines[i]);
+    }
+  }
+
+  display.display();
+}
+
 void addToOledDisplay(String line) {
   if (line.length() > 21) {
     line = line.substring(0, 21);
@@ -105,20 +120,7 @@ void addToOledDisplay(String line) {
   updateOledDisplay();
 }
 
-void updateOledDisplay() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
 
-  for (int i = 0; i < 8; i++) {
-    if (oledLines[i].length() > 0) {
-      display.println(oledLines[i]);
-    }
-  }
-
-  display.display();
-}
 
 void clearOledDisplay() {
   for (int i = 0; i < 8; i++) {
