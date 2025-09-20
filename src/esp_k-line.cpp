@@ -278,7 +278,7 @@ void handleSend() {
       }
     }
     
-    addToOledDisplay("TX: " + command);
+    addToOledDisplay("TX:" + command + toHexString(kwpFrame));
   }
   server.send(200, "text/plain", "OK");
 }
