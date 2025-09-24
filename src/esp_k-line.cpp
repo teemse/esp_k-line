@@ -3,9 +3,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include "LittleFS.h"
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <GyverOLED.h>
 #include <pgmspace.h>
 
 const char *ssid = "K-Line_Adapter";
@@ -81,64 +79,13 @@ unsigned long lastUpdate = 0;
 #define ANIME2_WIDTH 128
 #define ANIME2_HEIGHT 64
 #define OLED_RESET -1
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
 
 // Буфер для отображения на OLED
 String oledLines[8];
 int currentLine = 0;
 
 // Функции для работы с OLED дисплеем
-void updateOledDisplay()
-{
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-
-  for (int i = 0; i < 8; i++)
-  {
-    if (oledLines[i].length() > 0)
-    {
-      display.println(oledLines[i]);
-    }
-  }
-
-  display.display();
-}
-
-void addToOledDisplay(const String &line)
-{
-  String displayLine = line;
-  if (displayLine.length() > 21)
-  {
-    displayLine = displayLine.substring(0, 21);
-  }
-
-  if (currentLine >= 7)
-  {
-    for (int i = 0; i < 7; i++)
-    {
-      oledLines[i] = oledLines[i + 1];
-    }
-    oledLines[7] = displayLine;
-  }
-  else
-  {
-    oledLines[currentLine] = displayLine;
-    currentLine++;
-  }
-  updateOledDisplay();
-}
-
-void clearOledDisplay()
-{
-  for (int i = 0; i < 8; i++)
-  {
-    oledLines[i] = "";
-  }
-  currentLine = 0;
-  updateOledDisplay();
-}
 
 // Функции для работы с KWP2000
 String createKwpFrame(const String &command)
@@ -336,20 +283,13 @@ void setup()
   serialData.reserve(5000);
 
   // Инициализация OLED дисплея
-  Wire.begin(4, 5);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  {
-    Serial.println("OLED не инициализирован!");
-    // Продолжаем работу даже без дисплея
-  }
-  else
-  {
-    // Показываем заставку при включении
-    display.clearDisplay();
-    display.drawBitmap(0, 0, anime2, 128, 64, SSD1306_WHITE);
-    display.display();
-    delay(2000); // Показываем заставку 2 секунды
-  }
+  oled.init();
+
+  // Показываем заставку при включении
+  oled.clear();
+  oled.drawBitmap(0, 0, anime2, 128, 64);
+  oled.update();
+  delay(2000); // Показываем заставку 2 секунды
 
   // Инициализация файловой системы
   if (!LittleFS.begin())
@@ -382,15 +322,9 @@ void setup()
   serialData += "Speed: 10400 baud<br>";
   serialData += "Protocol: KWP2000<br>";
 
-  // Инициализация OLED дисплея
-  if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  {
-    clearOledDisplay();
-    addToOledDisplay("    K-Line Adapter");
-    addToOledDisplay("IP: " + myIP.toString());
-    addToOledDisplay("Speed: 10400");
-    addToOledDisplay("KWP2000 ready");
-  }
+  oled.clear();
+  oled.print("LOL KEK");
+  oled.update();
 }
 
 void loop()
