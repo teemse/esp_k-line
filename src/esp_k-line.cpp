@@ -375,6 +375,8 @@ void setup()
 
   // Инициализация OLED дисплея
   oled.init();
+  oled.flipH(true);
+  oled.flipV(true);
 
   // Показываем заставку при включении
   oled.clear();
