@@ -74,10 +74,6 @@ String serialData;
 unsigned long lastUpdate = 0;
 
 // Настройки OLED дисплея
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define ANIME2_WIDTH 128
-#define ANIME2_HEIGHT 64
 #define OLED_RESET -1
 GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
 
@@ -88,30 +84,50 @@ int currentLine = 0;
 // Функции для работы с OLED дисплеем
 
 // Функции для работы с KWP2000
+void init_conn()
+{
+  Serial.print(createKwpFrame("81")); // Ответ 83 F1 10 C1 6B 8F 3F
+
+  Serial.print(createKwpFrame("10 81 0A")); // Ответ 82 F1 10 50 81 54
+
+  Serial.print(createKwpFrame("21 0F")); // Ответ 81 F1 10 7E 00
+}
+
 String createKwpFrame(const String &command)
 {
   String cleanCommand = command;
   cleanCommand.replace(" ", "");
-  int len = cleanCommand.length() / 2;
+  int dataLen = cleanCommand.length() / 2;
 
-  if (len == 0 || cleanCommand.length() % 2 != 0)
+  if (dataLen == 0 || cleanCommand.length() % 2 != 0)
   {
     return "";
   }
 
-  String frame = "";
-  byte formatByte = 0xC0 | (len + 2);
-  frame += (char)formatByte;
-  frame += (char)0x10;
-  frame += (char)0xF1;
+  // Проверка максимальной длины (согласно спецификации)
+  if (dataLen > 63)
+  {
+    return ""; // Для 3-байтного заголовка максимум 63 байта данных
+  }
 
-  for (int i = 0; i < len; i++)
+  String frame = "";
+
+  // ПРАВИЛЬНЫЙ расчет байта формата:
+  // A1,A0 = 10 (физическая адресация) + длина поля данных
+  byte formatByte = 0x80 | dataLen; // 0x80 = 10000000 (A1=1, A0=0)
+  frame += (char)formatByte;
+  frame += (char)0x10; // Адрес получателя (ECU)
+  frame += (char)0xF1; // Адрес отправителя (тестер)
+
+  // Добавление данных
+  for (int i = 0; i < dataLen; i++)
   {
     String byteStr = cleanCommand.substring(i * 2, i * 2 + 2);
     byte dataByte = (byte)strtol(byteStr.c_str(), NULL, 16);
     frame += (char)dataByte;
   }
 
+  // Контрольная сумма
   byte checksum = 0;
   for (size_t i = 0; i < frame.length(); i++)
   {
@@ -141,11 +157,12 @@ String toHexString(const String &data)
 String parseKwpFrame(const String &frame)
 {
   if (frame.length() < 5)
-    return "Invalid frame";
+    return "Invalid frame: too short";
 
   String result;
-  result.reserve(100);
+  result.reserve(150);
 
+  // Проверка контрольной суммы
   byte checksum = 0;
   for (size_t i = 0; i < frame.length() - 1; i++)
   {
@@ -157,17 +174,55 @@ String parseKwpFrame(const String &frame)
     return "Checksum error";
   }
 
+  // Анализ байта формата
+  byte formatByte = frame[0];
+  byte addressMode = (formatByte >> 6) & 0x03; // Биты 7-6
+  byte dataLength = formatByte & 0x3F;         // Биты 5-0
+
+  result += "Format: 0x";
+  char buf[10];
+  sprintf(buf, "%02X", formatByte);
+  result += buf;
+  result += " (Mode: ";
+  result += String(addressMode);
+  result += " Len: ";
+  result += String(dataLength);
+  result += ") ";
+
+  // Проверка типа заголовка
+  if (addressMode != 0x02)
+  { // 10 = физическая адресация (из спецификации)
+    result += "Unsupported address mode";
+    return result;
+  }
+
+  // Для 3-байтного заголовка (физическая адресация)
+  if (frame.length() != dataLength + 4)
+  { // Fmt+Tgt+Src+Data+CS
+    result += "Length mismatch";
+    return result;
+  }
+
   byte targetAddr = frame[1];
   byte sourceAddr = frame[2];
 
   result += "Target: 0x";
-  char buf[3];
   sprintf(buf, "%02X", targetAddr);
   result += buf;
 
   result += " Source: 0x";
   sprintf(buf, "%02X", sourceAddr);
   result += buf;
+
+  // Проверка адресов по спецификации
+  if (targetAddr != 0x10)
+  {
+    result += " [Invalid ECU addr]";
+  }
+  if (sourceAddr != 0xF1 && sourceAddr != 0xC0)
+  { // F1=тестер, C0=иммобилайзер
+    result += " [Invalid source addr]";
+  }
 
   result += " Data: ";
   for (size_t i = 3; i < frame.length() - 1; i++)
