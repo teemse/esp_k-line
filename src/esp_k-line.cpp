@@ -25,12 +25,7 @@ String serialData;
 unsigned long lastUpdate = 0;
 
 // Настройки OLED дисплея
-#define OLED_RESET -1
 GyverOLED<SSD1306_128x64> oled;
-
-// Буфер для отображения на OLED
-String oledLines[8];
-int currentLine = 0;
 
 // Функции для работы с OLED дисплеем
 
@@ -390,7 +385,7 @@ void setup()
   // Инициализация файловой системы
   if (!LittleFS.begin())
   {
-    Serial.println("Failed to mount file system");
+    oled.print("Ошибка файловой системы");
     // Продолжаем работу даже без файловой системы
   }
 
@@ -418,20 +413,42 @@ void setup()
   serialData += "Speed: 10400 baud<br>";
   serialData += "Protocol: KWP2000<br>";
 
+  oled.clear();
+  oled.setScale(2);
+  oled.setCursor(20, 1);
+  oled.print("ВКЛЮЧИТЕ");
+  oled.setCursor(14, 4);
+  oled.print("ЗАЖИГАНИЕ");
+  oled.update();
+  delay(5000); // Показываем заставку 2 секунды
+
   if (init_conn())
   {
     // Соединение установлено
     oled.clear();
-    oled.print("Связь с ЭБУ установлена");
+    oled.setCursor(35, 0);
+    oled.print("ОТВЕТ");
+    oled.setCursor(30, 3);
+    oled.print("ОТ ЭБУ");
+    oled.setCursor(25, 6);
+    oled.print("ПОЛУЧЕН");
     oled.update();
+    oled.setScale(1);
     delay(2000); // Показываем заставку 2 секунды
+    maintain_kwp_connection();
   }
   else
   {
     // Ошибка подключения
     oled.clear();
-    oled.print("Ошибка подключения");
+    oled.setCursor(30, 0);
+    oled.print("ОШИБКА");
+    oled.setCursor(25, 3);
+    oled.print("СВЯЗИ С");
+    oled.setCursor(50, 6);
+    oled.print("ЭБУ");
     oled.update();
+    oled.setScale(1);
     delay(2000); // Показываем заставку 2 секунды
   }
 }
